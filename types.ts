@@ -31,4 +31,5 @@ export interface ColumnMapping {
   sku: string;
   orderer: string; // 주문자명 열
   receiver: string; // 수취인명 열
+  option: string; // (New) 옵션 정보 열 - 제품명 대체용
 }

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
-import { UploadCloud, FileSpreadsheet, ArrowRight, Download, AlertCircle, CheckCircle2, User, Users } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, ArrowRight, Download, AlertCircle, CheckCircle2, User, Users, Tag } from 'lucide-react';
 import { Button } from '../components/Button';
 import { getStoredProducts, getStoredTemplates } from '../services/storageService';
 import { InvoiceRow, MatchedOrder, Product, ColumnMapping } from '../types';
@@ -17,8 +17,8 @@ export const InvoiceConverter: React.FC = () => {
   const [rawRows, setRawRows] = useState<InvoiceRow[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   
-  // Mapping State
-  const [mapping, setMapping] = useState<ColumnMapping>({ sku: '', orderer: '', receiver: '' });
+  // Mapping State - Added 'option'
+  const [mapping, setMapping] = useState<ColumnMapping>({ sku: '', orderer: '', receiver: '', option: '' });
   
   const [matchedData, setMatchedData] = useState<MatchedOrder[]>([]);
   
@@ -160,10 +160,20 @@ export const InvoiceConverter: React.FC = () => {
             const rowData: Record<string, any> = {};
             const product = order.product!;
             
-            // Logic 1: Determine Base Product Name (Original vs Additional)
-            let finalProductName = (product.useAdditionalName && product.additionalName) 
-              ? product.additionalName 
-              : product.name;
+            // Logic 1: Determine Base Product Name
+            // If mapping.option is set AND the row has a value, use it.
+            // Otherwise, fallback to configured product name (Original vs Additional)
+            let finalProductName = '';
+            
+            const optionValue = mapping.option ? String(order.originalData[mapping.option] || '').trim() : '';
+
+            if (optionValue) {
+               finalProductName = optionValue;
+            } else {
+               finalProductName = (product.useAdditionalName && product.additionalName) 
+                ? product.additionalName 
+                : product.name;
+            }
 
             // Logic 2: Check Orderer vs Receiver
             const ordererName = String(order.originalData[mapping.orderer] || '').trim();
@@ -333,7 +343,7 @@ export const InvoiceConverter: React.FC = () => {
                    </select>
                 </div>
 
-                {/* 2. Orderer & Receiver Selection */}
+                {/* 2. Orderer & Receiver & Option Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
                    <div className="space-y-2">
                      <div className="flex items-center gap-2 text-slate-800 font-bold text-base">
@@ -364,8 +374,25 @@ export const InvoiceConverter: React.FC = () => {
                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
                      </select>
                    </div>
-                   <div className="md:col-span-2 text-xs text-slate-500 bg-white p-2 rounded border border-slate-100 text-center">
-                     * 주문자와 수취인이 다를 경우 제품명 뒤에 <strong>"보내는 사람_주문자"</strong>가 자동으로 추가됩니다.
+
+                   <div className="space-y-2">
+                     <div className="flex items-center gap-2 text-slate-800 font-bold text-base">
+                        <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-xs flex items-center justify-center">4</span>
+                        <Tag size={16} /> 옵션 정보 열 (선택)
+                     </div>
+                     <select 
+                        className="w-full rounded-lg border-slate-300 focus:ring-primary focus:border-primary"
+                        value={mapping.option} 
+                        onChange={(e) => setMapping(prev => ({ ...prev, option: e.target.value }))}
+                     >
+                       <option value="">선택 안함 (기본 제품명 사용)</option>
+                       {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                     </select>
+                   </div>
+
+                   <div className="md:col-span-2 text-xs text-slate-500 bg-white p-2 rounded border border-slate-100">
+                     <p>• 주문자와 수취인이 다를 경우 제품명 뒤에 <strong>"보내는 사람_주문자"</strong>가 자동으로 추가됩니다.</p>
+                     <p className="mt-1 text-purple-700">• <strong>옵션 정보 열</strong>을 선택하면, 해당 열에 값이 있을 경우 제품명 대신 옵션값을 송장에 출력합니다.</p>
                    </div>
                 </div>
             </div>
@@ -450,11 +477,21 @@ export const InvoiceConverter: React.FC = () => {
                   <tbody>
                     {matchedData.slice(0, 50).map((row) => {
                       // Preview Logic
-                      let previewProductName = row.product?.name || '-';
+                      let previewProductName = '-';
+                      
+                      // 1. Determine base product name (Option vs Product Setting)
+                      const optionValue = mapping.option ? String(row.originalData[mapping.option] || '').trim() : '';
+
                       if (row.product) {
-                        if (row.product.useAdditionalName && row.product.additionalName) {
-                          previewProductName = row.product.additionalName;
+                        if (optionValue) {
+                           previewProductName = optionValue;
+                        } else {
+                           previewProductName = (row.product.useAdditionalName && row.product.additionalName)
+                            ? row.product.additionalName 
+                            : row.product.name;
                         }
+                        
+                        // 2. Append Sender info if needed
                         const orderer = String(row.originalData[mapping.orderer] || '').trim();
                         const receiver = String(row.originalData[mapping.receiver] || '').trim();
                         if (orderer && receiver && orderer !== receiver) {
@@ -485,7 +522,7 @@ export const InvoiceConverter: React.FC = () => {
             </div>
             
             <div className="mt-4 flex justify-start">
-               <Button variant="ghost" onClick={() => { setStep(1); setFileName(''); setRawRows([]); setMapping({sku: '', orderer: '', receiver: ''}); }}>
+               <Button variant="ghost" onClick={() => { setStep(1); setFileName(''); setRawRows([]); setMapping({sku: '', orderer: '', receiver: '', option: ''}); }}>
                   처음부터 다시하기
                </Button>
             </div>
