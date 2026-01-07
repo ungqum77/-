@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-
-  // Vercel이나 .env 어디서든 키를 찾아냅니다
+  
+  // Vercel 환경변수와 .env 파일 양쪽에서 키를 찾습니다.
   const realApiKey = 
     process.env.GEMINI_API_KEY || 
     process.env.VITE_GEMINI_API_KEY || 
@@ -20,9 +20,10 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react()],
     define: {
-      // [핵심 해결] 'process.env'라는 꾸러미 전체를 가짜로 만들어줍니다.
-      // 이렇게 하면 프로그램이 "process가 뭐지?" 하고 멈추는 일이 사라집니다.
+      // [수정된 부분] process.env를 만들 때 'NODE_ENV'도 같이 넣어줍니다!
+      // 이게 없으면 리액트가 작동을 멈춥니다.
       'process.env': JSON.stringify({
+        NODE_ENV: mode, 
         GEMINI_API_KEY: realApiKey,
         VITE_GEMINI_API_KEY: realApiKey,
         API_KEY: realApiKey
