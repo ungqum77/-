@@ -3,8 +3,17 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
-  // 환경 변수를 모두 가져옵니다.
+  // 1. Vite가 불러온 환경변수(.env)
   const env = loadEnv(mode, process.cwd(), '');
+  
+  // 2. Vercel 서버의 진짜 환경변수 (process.env)
+  // 순서대로 검사해서 하나라도 있으면 가져옵니다.
+  const realApiKey = 
+    process.env.GEMINI_API_KEY || 
+    process.env.VITE_GEMINI_API_KEY || 
+    env.GEMINI_API_KEY || 
+    env.VITE_GEMINI_API_KEY || 
+    '';
 
   return {
     server: {
@@ -13,11 +22,10 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react()],
     define: {
-      // Vercel에 설정한 키가 GEMINI_API_KEY 든 VITE_GEMINI_API_KEY 든 상관없이 다 잡도록 설정
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || ''),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || ''),
-      // 혹시 몰라 VITE_ 버전도 같이 주입
-      'process.env.VITE_GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || '')
+      // 3. 찾은 키를 프로그램에 강제로 주입 (이 부분이 핵심!)
+      'process.env.API_KEY': JSON.stringify(realApiKey),
+      'process.env.GEMINI_API_KEY': JSON.stringify(realApiKey),
+      'process.env.VITE_GEMINI_API_KEY': JSON.stringify(realApiKey)
     },
     resolve: {
       alias: {
