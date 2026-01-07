@@ -3,11 +3,9 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
-  // 1. Vite가 불러온 환경변수(.env)
   const env = loadEnv(mode, process.cwd(), '');
-  
-  // 2. Vercel 서버의 진짜 환경변수 (process.env)
-  // 순서대로 검사해서 하나라도 있으면 가져옵니다.
+
+  // Vercel이나 .env 어디서든 키를 찾아냅니다
   const realApiKey = 
     process.env.GEMINI_API_KEY || 
     process.env.VITE_GEMINI_API_KEY || 
@@ -22,10 +20,13 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react()],
     define: {
-      // 3. 찾은 키를 프로그램에 강제로 주입 (이 부분이 핵심!)
-      'process.env.API_KEY': JSON.stringify(realApiKey),
-      'process.env.GEMINI_API_KEY': JSON.stringify(realApiKey),
-      'process.env.VITE_GEMINI_API_KEY': JSON.stringify(realApiKey)
+      // [핵심 해결] 'process.env'라는 꾸러미 전체를 가짜로 만들어줍니다.
+      // 이렇게 하면 프로그램이 "process가 뭐지?" 하고 멈추는 일이 사라집니다.
+      'process.env': JSON.stringify({
+        GEMINI_API_KEY: realApiKey,
+        VITE_GEMINI_API_KEY: realApiKey,
+        API_KEY: realApiKey
+      })
     },
     resolve: {
       alias: {
